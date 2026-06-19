@@ -16,6 +16,8 @@ static EventHotKeyRef hotKeyRefs[5];
 - (void)codexCustom:(id)sender;
 - (void)openScreenshots:(id)sender;
 - (void)editConfig:(id)sender;
+- (void)captureSelfTest:(id)sender;
+- (void)codexSelfTest:(id)sender;
 - (void)quit:(id)sender;
 @end
 
@@ -27,6 +29,8 @@ static EventHotKeyRef hotKeyRefs[5];
 - (void)codexCustom:(id)sender { goHandleHotkey(5); }
 - (void)openScreenshots:(id)sender { goHandleMenu(1); }
 - (void)editConfig:(id)sender { goHandleMenu(2); }
+- (void)captureSelfTest:(id)sender { goHandleMenu(3); }
+- (void)codexSelfTest:(id)sender { goHandleMenu(4); }
 - (void)quit:(id)sender { [NSApp terminate:nil]; }
 @end
 
@@ -90,6 +94,9 @@ void noshot_run(void) {
 		[menu addItem:menuItem(@"Open Screenshots Folder", @selector(openScreenshots:), @"")];
 		[menu addItem:menuItem(@"Edit Config", @selector(editConfig:), @"")];
 		[menu addItem:[NSMenuItem separatorItem]];
+		[menu addItem:menuItem(@"Run Capture Self-Test", @selector(captureSelfTest:), @"")];
+		[menu addItem:menuItem(@"Run Codex Self-Test", @selector(codexSelfTest:), @"")];
+		[menu addItem:[NSMenuItem separatorItem]];
 		[menu addItem:menuItem(@"Quit NoShot", @selector(quit:), @"q")];
 		[statusItem setMenu:menu];
 
@@ -102,4 +109,3 @@ void noshot_run(void) {
 		[NSApp run];
 	}
 }
-

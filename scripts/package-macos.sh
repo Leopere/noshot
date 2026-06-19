@@ -30,9 +30,9 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>0.2.2</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>5</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
   <key>LSUIElement</key>
@@ -52,4 +52,3 @@ codesign --force --deep --sign - "$APP_DIR" >/dev/null
 
 echo "$APP_DIR"
 echo "$ROOT/dist/NoShot-macos-arm64.zip"
-

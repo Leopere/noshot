@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 )
 
@@ -26,7 +25,7 @@ func (c *Controller) HandleHotkey(id int) {
 	go func() {
 		defer c.done()
 		if err := c.handleHotkey(context.Background(), id); err != nil {
-			log.Printf("hotkey %d failed: %v", id, err)
+			Logf("hotkey %d failed: %v", id, err)
 			Notify("NoShot", err.Error())
 		}
 	}()
@@ -102,6 +101,42 @@ func (c *Controller) OpenScreenshotsFolder() error {
 
 func (c *Controller) EditConfig() error {
 	return EditPath(c.configPath)
+}
+
+func (c *Controller) RunCaptureSelfTest() {
+	if !c.tryStart() {
+		Notify("NoShot", "Capture already in progress")
+		return
+	}
+	go func() {
+		defer c.done()
+		path, err := Capture(context.Background(), c.cfg, CaptureFullscreen)
+		if err != nil {
+			Logf("capture self-test failed: %v", err)
+			Notify("NoShot", err.Error())
+			return
+		}
+		Logf("capture self-test succeeded: %s", path)
+		Notify("NoShot", "Capture self-test saved "+path)
+	}()
+}
+
+func (c *Controller) RunCodexSelfTest() {
+	if !c.tryStart() {
+		Notify("NoShot", "Capture already in progress")
+		return
+	}
+	go func() {
+		defer c.done()
+		result, imagePath, err := CodexSelfTest(context.Background(), c.cfg)
+		if err != nil {
+			Logf("codex self-test failed image=%q: %v", imagePath, err)
+			Notify("NoShot", err.Error())
+			return
+		}
+		Logf("codex self-test succeeded image=%q answer=%q", imagePath, result.AnswerPath)
+		Notify("NoShot", "Codex self-test saved "+result.AnswerPath)
+	}()
 }
 
 func (c *Controller) tryStart() bool {

@@ -8,7 +8,26 @@ package app
 #import <AppKit/AppKit.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
+#include <string.h>
 #include <stdlib.h>
+
+static char noshot_last_error[1024] = "";
+
+static void noshot_clear_error(void) {
+	noshot_last_error[0] = '\0';
+}
+
+static void noshot_set_error(NSString *message) {
+	if (message == nil) {
+		noshot_last_error[0] = '\0';
+		return;
+	}
+	snprintf(noshot_last_error, sizeof(noshot_last_error), "%s", [message UTF8String]);
+}
+
+static char *noshot_last_error_copy(void) {
+	return strdup(noshot_last_error);
+}
 
 @interface NoShotSelectionView : NSView
 @property NSPoint start;
@@ -38,6 +57,7 @@ package app
 
 static int noshot_write_cgimage(CGImageRef image, const char *path) {
 	if (image == NULL) {
+		noshot_set_error(@"ScreenCaptureKit returned an empty image");
 		return 1;
 	}
 	@autoreleasepool {
@@ -45,10 +65,64 @@ static int noshot_write_cgimage(CGImageRef image, const char *path) {
 		NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithCGImage:image];
 		NSData *data = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
 		if (data == nil) {
+			noshot_set_error(@"Could not encode captured image as PNG");
 			return 2;
 		}
-		return [data writeToFile:filePath atomically:YES] ? 0 : 3;
+		if (![data writeToFile:filePath atomically:YES]) {
+			noshot_set_error([NSString stringWithFormat:@"Could not write PNG to %@", filePath]);
+			return 3;
+		}
+		return 0;
 	}
+}
+
+static NSScreen *noshot_screen_for_display_id(CGDirectDisplayID displayID) {
+	for (NSScreen *screen in [NSScreen screens]) {
+		NSNumber *screenNumber = screen.deviceDescription[@"NSScreenNumber"];
+		if (screenNumber != nil && [screenNumber unsignedIntValue] == displayID) {
+			return screen;
+		}
+	}
+	return [NSScreen mainScreen];
+}
+
+static SCDisplay *noshot_display_for_cocoa_rect(SCShareableContent *content, NSRect rect) {
+	NSPoint center = NSMakePoint(NSMidX(rect), NSMidY(rect));
+	for (SCDisplay *display in content.displays) {
+		NSScreen *screen = noshot_screen_for_display_id(display.displayID);
+		if (screen != nil && NSPointInRect(center, screen.frame)) {
+			return display;
+		}
+	}
+	return [content.displays firstObject];
+}
+
+static SCDisplay *noshot_display_for_cocoa_point(SCShareableContent *content, NSPoint point) {
+	for (SCDisplay *display in content.displays) {
+		NSScreen *screen = noshot_screen_for_display_id(display.displayID);
+		if (screen != nil && NSPointInRect(point, screen.frame)) {
+			return display;
+		}
+	}
+	return [content.displays firstObject];
+}
+
+static CGRect noshot_source_rect_for_display(SCDisplay *display, NSRect cocoaRect) {
+	NSScreen *screen = noshot_screen_for_display_id(display.displayID);
+	NSRect screenFrame = screen.frame;
+	CGFloat x = cocoaRect.origin.x - screenFrame.origin.x;
+	CGFloat yFromBottom = cocoaRect.origin.y - screenFrame.origin.y;
+	CGFloat y = screenFrame.size.height - yFromBottom - cocoaRect.size.height;
+	return CGRectMake(MAX(0, x), MAX(0, y), cocoaRect.size.width, cocoaRect.size.height);
+}
+
+static CGPoint noshot_sck_point_for_display(SCDisplay *display, NSPoint cocoaPoint) {
+	NSScreen *screen = noshot_screen_for_display_id(display.displayID);
+	NSRect screenFrame = screen.frame;
+	CGFloat x = cocoaPoint.x - screenFrame.origin.x + display.frame.origin.x;
+	CGFloat yFromBottom = cocoaPoint.y - screenFrame.origin.y;
+	CGFloat y = screenFrame.size.height - yFromBottom + display.frame.origin.y;
+	return CGPointMake(x, y);
 }
 
 static NSRect noshot_select_rect(void) {
@@ -169,6 +243,7 @@ static SCShareableContent *noshot_shareable_content(int *status) {
 	dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 	[SCShareableContent getShareableContentExcludingDesktopWindows:NO onScreenWindowsOnly:YES completionHandler:^(SCShareableContent *content, NSError *error) {
 		if (error != nil || content == nil) {
+			noshot_set_error(error.localizedDescription ?: @"ScreenCaptureKit could not enumerate shareable content");
 			localStatus = 20;
 		} else {
 			result = content;
@@ -202,6 +277,7 @@ static SCStreamConfiguration *noshot_display_config(SCDisplay *display, CGRect s
 	config.height = (size_t)MAX(1.0, rect.size.height * scaleY);
 	config.pixelFormat = 'BGRA';
 	config.showsCursor = NO;
+	config.capturesAudio = NO;
 	config.queueDepth = 1;
 	if (!CGRectIsEmpty(sourceRect)) {
 		config.sourceRect = sourceRect;
@@ -214,6 +290,7 @@ static int noshot_capture_filter(SCContentFilter *filter, SCStreamConfiguration 
 	dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 	[SCScreenshotManager captureImageWithFilter:filter configuration:config completionHandler:^(CGImageRef image, NSError *error) {
 		if (error != nil) {
+			noshot_set_error(error.localizedDescription ?: @"ScreenCaptureKit screenshot capture failed");
 			status = 21;
 		} else {
 			status = noshot_write_cgimage(image, path);
@@ -225,6 +302,7 @@ static int noshot_capture_filter(SCContentFilter *filter, SCStreamConfiguration 
 }
 
 static int noshot_capture_fullscreen(const char *path) {
+	noshot_clear_error();
 	int status = 0;
 	SCShareableContent *content = noshot_shareable_content(&status);
 	if (status != 0) {
@@ -239,8 +317,10 @@ static int noshot_capture_fullscreen(const char *path) {
 }
 
 static int noshot_capture_region(const char *path) {
+	noshot_clear_error();
 	NSRect selectedRect = noshot_select_rect();
 	if (NSIsEmptyRect(selectedRect)) {
+		noshot_set_error(@"Capture cancelled");
 		return 10;
 	}
 
@@ -249,18 +329,22 @@ static int noshot_capture_region(const char *path) {
 	if (status != 0) {
 		return status;
 	}
-	SCDisplay *display = noshot_main_display(content);
+	SCDisplay *display = noshot_display_for_cocoa_rect(content, selectedRect);
 	if (display == nil) {
+		noshot_set_error(@"No display matched the selected region");
 		return 22;
 	}
 
 	SCContentFilter *filter = [[SCContentFilter alloc] initWithDisplay:display excludingWindows:@[]];
-	return noshot_capture_filter(filter, noshot_display_config(display, selectedRect), path);
+	CGRect sourceRect = noshot_source_rect_for_display(display, selectedRect);
+	return noshot_capture_filter(filter, noshot_display_config(display, sourceRect), path);
 }
 
 static int noshot_capture_window(const char *path) {
+	noshot_clear_error();
 	NSPoint point = noshot_select_point();
 	if (isnan(point.x) || isnan(point.y)) {
+		noshot_set_error(@"Capture cancelled");
 		return 10;
 	}
 
@@ -270,26 +354,37 @@ static int noshot_capture_window(const char *path) {
 		return status;
 	}
 
+	SCDisplay *clickedDisplay = noshot_display_for_cocoa_point(content, point);
+	if (clickedDisplay == nil) {
+		noshot_set_error(@"No display matched the clicked point");
+		return 22;
+	}
+	CGPoint sckPoint = noshot_sck_point_for_display(clickedDisplay, point);
 	SCWindow *selectedWindow = nil;
 	for (SCWindow *window in content.windows) {
 		if (!window.isOnScreen || window.windowLayer != 0) {
 			continue;
 		}
-		if (CGRectContainsPoint(window.frame, point)) {
+		if (CGRectContainsPoint(window.frame, sckPoint)) {
 			selectedWindow = window;
 			break;
 		}
 	}
 	if (selectedWindow == nil) {
+		noshot_set_error(@"No window found under the clicked point");
 		return 12;
 	}
 
 	SCContentFilter *filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow:selectedWindow];
+	SCShareableContentInfo *info = [SCShareableContent infoForFilter:filter];
+	CGRect contentRect = info.contentRect;
+	CGFloat scale = MAX((CGFloat)info.pointPixelScale, 1.0);
 	SCStreamConfiguration *config = [[SCStreamConfiguration alloc] init];
-	config.width = (size_t)MAX(1.0, selectedWindow.frame.size.width);
-	config.height = (size_t)MAX(1.0, selectedWindow.frame.size.height);
+	config.width = (size_t)MAX(1.0, contentRect.size.width * scale);
+	config.height = (size_t)MAX(1.0, contentRect.size.height * scale);
 	config.pixelFormat = 'BGRA';
 	config.showsCursor = NO;
+	config.capturesAudio = NO;
 	config.queueDepth = 1;
 	config.ignoreShadowsSingleWindow = YES;
 	return noshot_capture_filter(filter, config, path);
@@ -299,6 +394,7 @@ import "C"
 
 import (
 	"fmt"
+	"strings"
 	"unsafe"
 )
 
@@ -321,7 +417,22 @@ func nativeCapture(path string, mode CaptureMode) error {
 		return fmt.Errorf("capture cancelled")
 	}
 	if status != 0 {
+		detail := lastNativeCaptureError()
+		if detail != "" {
+			Logf("native capture failed status=%d detail=%s", int(status), detail)
+			return fmt.Errorf("%s", detail)
+		}
+		Logf("native capture failed status=%d", int(status))
 		return fmt.Errorf("native capture failed with status %d", int(status))
 	}
 	return nil
+}
+
+func lastNativeCaptureError() string {
+	cMessage := C.noshot_last_error_copy()
+	if cMessage == nil {
+		return ""
+	}
+	defer C.free(unsafe.Pointer(cMessage))
+	return strings.TrimSpace(C.GoString(cMessage))
 }

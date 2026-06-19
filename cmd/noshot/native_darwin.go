@@ -17,6 +17,8 @@ import (
 const (
 	menuOpenScreenshots = 1
 	menuEditConfig      = 2
+	menuCaptureSelfTest = 3
+	menuCodexSelfTest   = 4
 )
 
 var controller *app.Controller
@@ -47,6 +49,10 @@ func goHandleMenu(action C.int) {
 		if err := controller.EditConfig(); err != nil {
 			app.Notify("NoShot", err.Error())
 		}
+	case menuCaptureSelfTest:
+		controller.RunCaptureSelfTest()
+	case menuCodexSelfTest:
+		controller.RunCodexSelfTest()
 	default:
 		app.Notify("NoShot", "Unknown menu action")
 	}

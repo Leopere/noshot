@@ -14,6 +14,7 @@ a separate project.
 - Filename template: `greenshot_2006-01-02_15-04-05.png`
 - Clipboard: copy the captured image after saving
 - Codex integration: uses the installed `codex` CLI and its current local auth
+- Logs: `~/Library/Logs/NoShot/noshot.log`
 
 ## Hotkeys
 
@@ -50,11 +51,15 @@ Example:
   "screenshots_dir": "~/Pictures/Greenshot",
   "filename_template": "greenshot_2006-01-02_15-04-05.png",
   "copy_image_to_clipboard": true,
-  "codex_command": "codex"
+  "codex_command": "codex",
+  "codex_work_dir": "/Users/aedev/dev/noshot"
 }
 ```
 
 The filename template is a Go time layout.
+
+The menu includes capture and Codex self-tests. Use those first when macOS
+permissions or Codex auth are unclear.
 
 ## License
 

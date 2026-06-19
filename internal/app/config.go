@@ -12,6 +12,7 @@ const (
 	defaultScreenshotsDir = "~/Pictures/Greenshot"
 	defaultFilenameLayout = "greenshot_2006-01-02_15-04-05.png"
 	defaultCodexCommand   = "codex"
+	defaultCodexWorkDir   = "/Users/aedev/dev/noshot"
 	applicationSupportDir = "Library/Application Support/NoShot"
 	defaultConfigFilename = "config.json"
 )
@@ -21,6 +22,7 @@ type Config struct {
 	FilenameTemplate     string `json:"filename_template"`
 	CopyImageToClipboard bool   `json:"copy_image_to_clipboard"`
 	CodexCommand         string `json:"codex_command"`
+	CodexWorkDir         string `json:"codex_work_dir"`
 }
 
 func DefaultConfig() Config {
@@ -29,6 +31,7 @@ func DefaultConfig() Config {
 		FilenameTemplate:     defaultFilenameLayout,
 		CopyImageToClipboard: true,
 		CodexCommand:         defaultCodexCommand,
+		CodexWorkDir:         defaultCodexWorkDir,
 	}
 }
 
@@ -84,6 +87,11 @@ func (c *Config) ApplyDefaults() {
 	}
 	if strings.TrimSpace(c.CodexCommand) == "" {
 		c.CodexCommand = defaultCodexCommand
+	}
+	if strings.TrimSpace(c.CodexWorkDir) == "" {
+		if _, err := os.Stat(defaultCodexWorkDir); err == nil {
+			c.CodexWorkDir = defaultCodexWorkDir
+		}
 	}
 }
 
