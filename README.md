@@ -52,7 +52,7 @@ Example:
   "filename_template": "greenshot_2006-01-02_15-04-05.png",
   "copy_image_to_clipboard": true,
   "codex_command": "codex",
-  "codex_work_dir": "/Users/aedev/dev/noshot"
+  "codex_work_dir": ""
 }
 ```
 
@@ -60,6 +60,10 @@ The filename template is a Go time layout.
 
 The menu includes capture and Codex self-tests. Use those first when macOS
 permissions or Codex auth are unclear.
+
+By default, Codex runs from `~/Library/Application Support/NoShot/codex-work`
+against a copied screenshot, so it does not need direct access to your
+screenshots folder or this development repo.
 
 ## License
 

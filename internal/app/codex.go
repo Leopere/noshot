@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,6 +29,11 @@ func RunCodexOnImage(ctx context.Context, cfg Config, imagePath, prompt string) 
 	runCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
+	workDir, localImagePath, err := prepareCodexWorkDir(cfg, imagePath)
+	if err != nil {
+		return CodexResult{}, err
+	}
+
 	var stderr bytes.Buffer
 	cmd := exec.CommandContext(
 		runCtx,
@@ -36,16 +42,16 @@ func RunCodexOnImage(ctx context.Context, cfg Config, imagePath, prompt string) 
 		"--ephemeral",
 		"--skip-git-repo-check",
 		"--cd",
-		codexWorkDir(cfg),
+		workDir,
 		"--image",
-		imagePath,
+		localImagePath,
 		"-",
 	)
 	cmd.Stderr = &stderr
 	cmd.Stdin = strings.NewReader(prompt)
 
 	output, err := cmd.Output()
-	Logf("codex exec image=%q prompt=%q stderr=%q", imagePath, prompt, stderr.String())
+	Logf("codex exec image=%q localImage=%q workDir=%q prompt=%q stderr=%q", imagePath, localImagePath, workDir, prompt, stderr.String())
 	if runCtx.Err() != nil {
 		return CodexResult{}, runCtx.Err()
 	}
@@ -93,11 +99,11 @@ func codexWorkDir(cfg Config) string {
 		}
 		return cfg.CodexWorkDir
 	}
-	home, err := os.UserHomeDir()
+	dir, err := appSupportPath("codex-work")
 	if err != nil {
 		return "."
 	}
-	return home
+	return dir
 }
 
 func codexCommand(cfg Config) string {
@@ -118,4 +124,48 @@ func codexCommand(cfg Config) string {
 		return defaultCodexCommand
 	}
 	return command
+}
+
+func prepareCodexWorkDir(cfg Config, imagePath string) (string, string, error) {
+	workDir := codexWorkDir(cfg)
+	if err := os.MkdirAll(workDir, 0o700); err != nil {
+		return "", "", err
+	}
+	localImagePath := filepath.Join(workDir, "input"+filepath.Ext(imagePath))
+	if filepath.Ext(localImagePath) == "" {
+		localImagePath += ".png"
+	}
+	if sameCleanPath(imagePath, localImagePath) {
+		return workDir, localImagePath, nil
+	}
+	source, err := os.Open(imagePath)
+	if err != nil {
+		return "", "", err
+	}
+	defer source.Close()
+	target, err := os.OpenFile(localImagePath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return "", "", err
+	}
+	if _, err := io.Copy(target, source); err != nil {
+		_ = target.Close()
+		return "", "", err
+	}
+	if err := target.Close(); err != nil {
+		return "", "", err
+	}
+	return workDir, localImagePath, nil
+}
+
+func appSupportPath(parts ...string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	segments := append([]string{home, applicationSupportDir}, parts...)
+	return filepath.Join(segments...), nil
+}
+
+func sameCleanPath(a, b string) bool {
+	return filepath.Clean(a) == filepath.Clean(b)
 }

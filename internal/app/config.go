@@ -12,7 +12,7 @@ const (
 	defaultScreenshotsDir = "~/Pictures/Greenshot"
 	defaultFilenameLayout = "greenshot_2006-01-02_15-04-05.png"
 	defaultCodexCommand   = "codex"
-	defaultCodexWorkDir   = "/Users/aedev/dev/noshot"
+	defaultCodexWorkDir   = ""
 	applicationSupportDir = "Library/Application Support/NoShot"
 	defaultConfigFilename = "config.json"
 )
@@ -89,9 +89,7 @@ func (c *Config) ApplyDefaults() {
 		c.CodexCommand = defaultCodexCommand
 	}
 	if strings.TrimSpace(c.CodexWorkDir) == "" {
-		if _, err := os.Stat(defaultCodexWorkDir); err == nil {
-			c.CodexWorkDir = defaultCodexWorkDir
-		}
+		c.CodexWorkDir = defaultCodexWorkDir
 	}
 }
 
