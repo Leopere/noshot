@@ -43,11 +43,7 @@ func (c *Controller) handleHotkey(ctx context.Context, id int) error {
 	case 4:
 		return c.captureAndAskCodex(ctx, ExplainPrompt)
 	case 5:
-		prompt, err := AskCustomPrompt(ctx)
-		if err != nil {
-			return fmt.Errorf("custom prompt cancelled")
-		}
-		return c.captureAndAskCodex(ctx, prompt)
+		return c.captureAndAskCustomCodex(ctx)
 	default:
 		return fmt.Errorf("unknown hotkey %d", id)
 	}
@@ -66,6 +62,25 @@ func (c *Controller) captureAndAskCodex(ctx context.Context, prompt string) erro
 	path, err := Capture(ctx, c.cfg, CaptureRegion)
 	if err != nil {
 		return err
+	}
+	Notify("NoShot", "Screenshot saved. Asking Codex...")
+
+	result, err := RunCodexOnImage(ctx, c.cfg, path, prompt)
+	if err != nil {
+		return err
+	}
+	Notify("NoShot", "Codex answer copied and saved to "+result.AnswerPath)
+	return nil
+}
+
+func (c *Controller) captureAndAskCustomCodex(ctx context.Context) error {
+	path, err := Capture(ctx, c.cfg, CaptureRegion)
+	if err != nil {
+		return err
+	}
+	prompt, err := AskCustomPrompt(ctx)
+	if err != nil {
+		return fmt.Errorf("custom prompt cancelled; screenshot saved to %s", path)
 	}
 	Notify("NoShot", "Screenshot saved. Asking Codex...")
 
