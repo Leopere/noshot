@@ -4,50 +4,11 @@ package app
 
 /*
 #cgo darwin CFLAGS: -x objective-c -fblocks
-#cgo darwin LDFLAGS: -framework AppKit -framework CoreGraphics
+#cgo darwin LDFLAGS: -framework AppKit -framework CoreGraphics -framework ScreenCaptureKit
 #import <AppKit/AppKit.h>
 #import <CoreGraphics/CoreGraphics.h>
-#include <dlfcn.h>
+#import <ScreenCaptureKit/ScreenCaptureKit.h>
 #include <stdlib.h>
-
-typedef CGImageRef (*NoShotDisplayCreateImageFn)(CGDirectDisplayID displayID);
-typedef CGImageRef (*NoShotDisplayCreateImageForRectFn)(CGDirectDisplayID displayID, CGRect rect);
-typedef CGImageRef (*NoShotWindowListCreateImageFn)(CGRect screenBounds, CGWindowListOption listOption, CGWindowID windowID, CGWindowImageOption imageOption);
-
-static void *noshot_coregraphics(void) {
-	static void *handle = NULL;
-	if (handle == NULL) {
-		handle = dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_LAZY);
-	}
-	return handle;
-}
-
-static CGImageRef noshot_display_create_image(CGDirectDisplayID displayID) {
-	void *handle = noshot_coregraphics();
-	if (handle == NULL) {
-		return NULL;
-	}
-	NoShotDisplayCreateImageFn fn = (NoShotDisplayCreateImageFn)dlsym(handle, "CGDisplayCreateImage");
-	return fn == NULL ? NULL : fn(displayID);
-}
-
-static CGImageRef noshot_display_create_image_for_rect(CGDirectDisplayID displayID, CGRect rect) {
-	void *handle = noshot_coregraphics();
-	if (handle == NULL) {
-		return NULL;
-	}
-	NoShotDisplayCreateImageForRectFn fn = (NoShotDisplayCreateImageForRectFn)dlsym(handle, "CGDisplayCreateImageForRect");
-	return fn == NULL ? NULL : fn(displayID, rect);
-}
-
-static CGImageRef noshot_window_list_create_image(CGRect screenBounds, CGWindowListOption listOption, CGWindowID windowID, CGWindowImageOption imageOption) {
-	void *handle = noshot_coregraphics();
-	if (handle == NULL) {
-		return NULL;
-	}
-	NoShotWindowListCreateImageFn fn = (NoShotWindowListCreateImageFn)dlsym(handle, "CGWindowListCreateImage");
-	return fn == NULL ? NULL : fn(screenBounds, listOption, windowID, imageOption);
-}
 
 @interface NoShotSelectionView : NSView
 @property NSPoint start;
@@ -88,12 +49,6 @@ static int noshot_write_cgimage(CGImageRef image, const char *path) {
 		}
 		return [data writeToFile:filePath atomically:YES] ? 0 : 3;
 	}
-}
-
-static CGRect noshot_cocoa_rect_to_cg(NSRect rect) {
-	CGDirectDisplayID display = CGMainDisplayID();
-	size_t height = CGDisplayPixelsHigh(display);
-	return CGRectMake(rect.origin.x, height - rect.origin.y - rect.size.height, rect.size.width, rect.size.height);
 }
 
 static NSRect noshot_select_rect(void) {
@@ -208,27 +163,99 @@ static NSPoint noshot_select_point(void) {
 	return point;
 }
 
-static int noshot_capture_fullscreen(const char *path) {
-	CGImageRef image = noshot_display_create_image(CGMainDisplayID());
-	int status = noshot_write_cgimage(image, path);
-	if (image != NULL) {
-		CGImageRelease(image);
+static SCShareableContent *noshot_shareable_content(int *status) {
+	__block SCShareableContent *result = nil;
+	__block int localStatus = 0;
+	dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+	[SCShareableContent getShareableContentExcludingDesktopWindows:NO onScreenWindowsOnly:YES completionHandler:^(SCShareableContent *content, NSError *error) {
+		if (error != nil || content == nil) {
+			localStatus = 20;
+		} else {
+			result = content;
+		}
+		dispatch_semaphore_signal(sema);
+	}];
+	dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+	if (status != NULL) {
+		*status = localStatus;
 	}
+	return result;
+}
+
+static SCDisplay *noshot_main_display(SCShareableContent *content) {
+	CGDirectDisplayID mainDisplay = CGMainDisplayID();
+	for (SCDisplay *display in content.displays) {
+		if (display.displayID == mainDisplay) {
+			return display;
+		}
+	}
+	return [content.displays firstObject];
+}
+
+static SCStreamConfiguration *noshot_display_config(SCDisplay *display, CGRect sourceRect) {
+	SCStreamConfiguration *config = [[SCStreamConfiguration alloc] init];
+	CGDirectDisplayID displayID = display.displayID;
+	CGRect rect = CGRectIsEmpty(sourceRect) ? display.frame : sourceRect;
+	CGFloat scaleX = (CGFloat)CGDisplayPixelsWide(displayID) / MAX((CGFloat)display.width, 1.0);
+	CGFloat scaleY = (CGFloat)CGDisplayPixelsHigh(displayID) / MAX((CGFloat)display.height, 1.0);
+	config.width = (size_t)MAX(1.0, rect.size.width * scaleX);
+	config.height = (size_t)MAX(1.0, rect.size.height * scaleY);
+	config.pixelFormat = 'BGRA';
+	config.showsCursor = NO;
+	config.queueDepth = 1;
+	if (!CGRectIsEmpty(sourceRect)) {
+		config.sourceRect = sourceRect;
+	}
+	return config;
+}
+
+static int noshot_capture_filter(SCContentFilter *filter, SCStreamConfiguration *config, const char *path) {
+	__block int status = 0;
+	dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+	[SCScreenshotManager captureImageWithFilter:filter configuration:config completionHandler:^(CGImageRef image, NSError *error) {
+		if (error != nil) {
+			status = 21;
+		} else {
+			status = noshot_write_cgimage(image, path);
+		}
+		dispatch_semaphore_signal(sema);
+	}];
+	dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
 	return status;
 }
 
+static int noshot_capture_fullscreen(const char *path) {
+	int status = 0;
+	SCShareableContent *content = noshot_shareable_content(&status);
+	if (status != 0) {
+		return status;
+	}
+	SCDisplay *display = noshot_main_display(content);
+	if (display == nil) {
+		return 22;
+	}
+	SCContentFilter *filter = [[SCContentFilter alloc] initWithDisplay:display excludingWindows:@[]];
+	return noshot_capture_filter(filter, noshot_display_config(display, CGRectNull), path);
+}
+
 static int noshot_capture_region(const char *path) {
-	NSRect cocoaRect = noshot_select_rect();
-	if (NSIsEmptyRect(cocoaRect)) {
+	NSRect selectedRect = noshot_select_rect();
+	if (NSIsEmptyRect(selectedRect)) {
 		return 10;
 	}
-	CGRect cgRect = noshot_cocoa_rect_to_cg(cocoaRect);
-	CGImageRef image = noshot_display_create_image_for_rect(CGMainDisplayID(), cgRect);
-	int status = noshot_write_cgimage(image, path);
-	if (image != NULL) {
-		CGImageRelease(image);
+
+	int status = 0;
+	SCShareableContent *content = noshot_shareable_content(&status);
+	if (status != 0) {
+		return status;
 	}
-	return status;
+	SCDisplay *display = noshot_main_display(content);
+	if (display == nil) {
+		return 22;
+	}
+
+	SCContentFilter *filter = [[SCContentFilter alloc] initWithDisplay:display excludingWindows:@[]];
+	return noshot_capture_filter(filter, noshot_display_config(display, selectedRect), path);
 }
 
 static int noshot_capture_window(const char *path) {
@@ -237,44 +264,35 @@ static int noshot_capture_window(const char *path) {
 		return 10;
 	}
 
-	CGDirectDisplayID display = CGMainDisplayID();
-	CGPoint cgPoint = CGPointMake(point.x, CGDisplayPixelsHigh(display) - point.y);
-	CFArrayRef windows = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID);
-	if (windows == NULL) {
-		return 11;
+	int status = 0;
+	SCShareableContent *content = noshot_shareable_content(&status);
+	if (status != 0) {
+		return status;
 	}
 
-	CGWindowID selectedWindow = kCGNullWindowID;
-	CFIndex count = CFArrayGetCount(windows);
-	for (CFIndex i = 0; i < count; i++) {
-		NSDictionary *info = (__bridge NSDictionary *)CFArrayGetValueAtIndex(windows, i);
-		NSNumber *layer = info[(id)kCGWindowLayer];
-		NSNumber *windowID = info[(id)kCGWindowNumber];
-		NSDictionary *bounds = info[(id)kCGWindowBounds];
-		if (layer == nil || windowID == nil || bounds == nil || [layer intValue] != 0) {
+	SCWindow *selectedWindow = nil;
+	for (SCWindow *window in content.windows) {
+		if (!window.isOnScreen || window.windowLayer != 0) {
 			continue;
 		}
-		CGRect rect;
-		if (!CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)bounds, &rect)) {
-			continue;
-		}
-		if (CGRectContainsPoint(rect, cgPoint)) {
-			selectedWindow = (CGWindowID)[windowID unsignedIntValue];
+		if (CGRectContainsPoint(window.frame, point)) {
+			selectedWindow = window;
 			break;
 		}
 	}
-	CFRelease(windows);
-
-	if (selectedWindow == kCGNullWindowID) {
+	if (selectedWindow == nil) {
 		return 12;
 	}
 
-	CGImageRef image = noshot_window_list_create_image(CGRectNull, kCGWindowListOptionIncludingWindow, selectedWindow, kCGWindowImageBoundsIgnoreFraming);
-	int status = noshot_write_cgimage(image, path);
-	if (image != NULL) {
-		CGImageRelease(image);
-	}
-	return status;
+	SCContentFilter *filter = [[SCContentFilter alloc] initWithDesktopIndependentWindow:selectedWindow];
+	SCStreamConfiguration *config = [[SCStreamConfiguration alloc] init];
+	config.width = (size_t)MAX(1.0, selectedWindow.frame.size.width);
+	config.height = (size_t)MAX(1.0, selectedWindow.frame.size.height);
+	config.pixelFormat = 'BGRA';
+	config.showsCursor = NO;
+	config.queueDepth = 1;
+	config.ignoreShadowsSingleWindow = YES;
+	return noshot_capture_filter(filter, config, path);
 }
 */
 import "C"
