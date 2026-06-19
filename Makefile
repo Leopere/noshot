@@ -1,4 +1,4 @@
-.PHONY: build check test verify run
+.PHONY: build check test verify run package
 
 build:
 	go build -o bin/noshot ./cmd/noshot
@@ -13,3 +13,6 @@ verify: build check test
 
 run:
 	go run ./cmd/noshot
+
+package:
+	./scripts/package-macos.sh
