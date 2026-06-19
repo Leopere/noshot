@@ -33,7 +33,7 @@ make verify
 make run
 ```
 
-The app targets macOS and uses Apple's built-in `screencapture` command.
+The app targets macOS and captures through native macOS APIs.
 
 ## Config
 
@@ -60,4 +60,3 @@ The filename template is a Go time layout.
 
 Licensed under CC-BY-4.0. Attribute original work to Colin Knapp and
 https://colinknapp.com.
-

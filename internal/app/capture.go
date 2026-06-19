@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -32,25 +30,12 @@ func Capture(ctx context.Context, cfg Config, mode CaptureMode) (string, error) 
 		return "", err
 	}
 
-	args := []string{"-x", "-t", "png"}
-	switch mode {
-	case CaptureRegion:
-		args = append(args, "-i", "-s")
-	case CaptureWindow:
-		args = append(args, "-i", "-w")
-	case CaptureFullscreen:
-	default:
-		return "", fmt.Errorf("unknown capture mode %d", mode)
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
-	args = append(args, path)
-
-	cmd := exec.CommandContext(ctx, "screencapture", args...)
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if err := nativeCapture(path, mode); err != nil {
 		_ = os.Remove(path)
-		if strings.Contains(strings.ToLower(string(output)), "could not create image from display") {
-			return "", fmt.Errorf("macOS denied screen capture; grant Screen Recording permission to NoShot in System Settings")
-		}
-		return "", fmt.Errorf("screencapture failed: %w: %s", err, string(output))
+		return "", err
 	}
 
 	info, err := os.Stat(path)
@@ -59,7 +44,7 @@ func Capture(ctx context.Context, cfg Config, mode CaptureMode) (string, error) 
 	}
 	if info.Size() == 0 {
 		_ = os.Remove(path)
-		return "", fmt.Errorf("screencapture produced an empty file")
+		return "", fmt.Errorf("native capture produced an empty file")
 	}
 
 	if cfg.CopyImageToClipboard {
