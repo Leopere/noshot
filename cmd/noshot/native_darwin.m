@@ -81,7 +81,15 @@ void noshot_run(void) {
 
 		menuTarget = [[NoShotMenuTarget alloc] init];
 		statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
-		[[statusItem button] setTitle:@"NoShot"];
+		NSImage *statusImage = [NSImage imageNamed:@"noshot-status"];
+		if (statusImage != nil) {
+			[statusImage setTemplate:YES];
+			[statusImage setSize:NSMakeSize(18, 18)];
+			[[statusItem button] setImage:statusImage];
+			[[statusItem button] setToolTip:@"NoShot"];
+		} else {
+			[[statusItem button] setTitle:@"NoShot"];
+		}
 
 		NSMenu *menu = [[NSMenu alloc] initWithTitle:@"NoShot"];
 		[menu addItem:menuItem(@"Capture Region", @selector(captureRegion:), @"1")];

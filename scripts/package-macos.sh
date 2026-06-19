@@ -11,6 +11,7 @@ rm -rf "$APP_DIR" "$ROOT/dist/NoShot-macos-arm64.zip"
 mkdir -p "$MACOS" "$RESOURCES"
 
 go build -o "$MACOS/NoShot" "$ROOT/cmd/noshot"
+cp "$ROOT/assets/menubar/noshot-status.pdf" "$RESOURCES/noshot-status.pdf"
 
 cat > "$CONTENTS/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -30,9 +31,9 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.2.4</string>
+  <string>0.2.5</string>
   <key>CFBundleVersion</key>
-  <string>7</string>
+  <string>8</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
   <key>LSUIElement</key>
