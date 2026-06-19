@@ -49,8 +49,10 @@ func Capture(ctx context.Context, cfg Config, mode CaptureMode) (string, error) 
 
 	if cfg.CopyImageToClipboard {
 		if err := CopyImageToClipboard(path); err != nil {
+			Logf("clipboard image copy failed path=%q: %v", path, err)
 			return path, fmt.Errorf("saved screenshot but could not copy image: %w", err)
 		}
+		Logf("clipboard image copy succeeded path=%q", path)
 	}
 
 	return path, nil
