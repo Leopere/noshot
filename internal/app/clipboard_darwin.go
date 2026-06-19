@@ -3,22 +3,27 @@
 package app
 
 /*
-#cgo darwin CFLAGS: -x objective-c
+#cgo darwin CFLAGS: -x objective-c -fblocks
 #cgo darwin LDFLAGS: -framework AppKit
 #import <AppKit/AppKit.h>
+#import <dispatch/dispatch.h>
 #include <stdlib.h>
 
 static int noshot_copy_image_to_clipboard(const char *path) {
-	@autoreleasepool {
+	__block int status = 0;
+	void (^work)(void) = ^{
+	  @autoreleasepool {
 		NSString *filePath = [NSString stringWithUTF8String:path];
 		NSURL *fileURL = [NSURL fileURLWithPath:filePath];
 		NSData *pngData = [NSData dataWithContentsOfFile:filePath];
 		if (pngData == nil || [pngData length] == 0) {
-			return 1;
+			status = 1;
+			return;
 		}
 		NSImage *image = [[NSImage alloc] initWithContentsOfFile:filePath];
 		if (image == nil) {
-			return 2;
+			status = 2;
+			return;
 		}
 		NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithData:pngData];
 		NSData *tiffData = nil;
@@ -40,13 +45,23 @@ static int noshot_copy_image_to_clipboard(const char *path) {
 		BOOL okWrite = [pasteboard writeObjects:@[item]];
 		NSInteger after = [pasteboard changeCount];
 		if (!okPNG || !okURL || !okTIFF || !okWrite) {
-			return 3;
+			status = 3;
+			return;
 		}
 		if (after == before) {
-			return 4;
+			status = 4;
+			return;
 		}
-		return 0;
+		NSLog(@"NoShot clipboard updated changeCount=%ld types=%@", (long)after, [pasteboard types]);
+		status = 0;
+	  }
+	};
+	if ([NSThread isMainThread]) {
+		work();
+	} else {
+		dispatch_sync(dispatch_get_main_queue(), work);
 	}
+	return status;
 }
 */
 import "C"

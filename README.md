@@ -34,7 +34,7 @@ make verify
 make run
 ```
 
-The app targets macOS and captures through native macOS APIs.
+The app targets macOS and captures through Apple's supported `screencapture` utility.
 
 ## Config
 
