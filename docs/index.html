@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="NoShot is a clean-room macOS screenshot helper with local Codex prompts.">
+  <title>NoShot - Colin Knapp</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <p class="eyebrow">Open source macOS tool</p>
+      <h1>NoShot</h1>
+      <p class="lede">A dirt-simple screenshot helper that saves, copies, and can ask local Codex to explain what you captured.</p>
+      <p class="actions">
+        <a class="button" href="https://github.com/Leopere/noshot">View source</a>
+        <a href="https://colinknapp.com">colinknapp.com</a>
+      </p>
+    </header>
+
+    <section aria-labelledby="features">
+      <h2 id="features">What it does</h2>
+      <div class="grid">
+        <article>
+          <h3>Fast capture</h3>
+          <p>Command+Shift+1 captures a region, +2 captures a window, and +3 captures the full screen.</p>
+        </article>
+        <article>
+          <h3>Save and copy</h3>
+          <p>Images save to <code>~/Pictures/Greenshot</code> by default and copy to the clipboard immediately.</p>
+        </article>
+        <article>
+          <h3>Codex prompts</h3>
+          <p>Command+Shift+4 asks Codex to explain a screenshot. +5 captures first, then asks for your custom prompt.</p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="install">
+      <h2 id="install">Build from source</h2>
+      <pre><code>git clone https://github.com/Leopere/noshot.git
+cd noshot
+make verify
+make run</code></pre>
+      <p>NoShot currently targets macOS and uses Apple’s built-in <code>screencapture</code> command.</p>
+    </section>
+
+    <section aria-labelledby="license">
+      <h2 id="license">License</h2>
+      <p>NoShot is clean-room software. It does not use Greenshot code, assets, names, or trademarks. The project is licensed under CC-BY-4.0 with attribution to Colin Knapp and <a href="https://colinknapp.com">colinknapp.com</a>.</p>
+    </section>
+  </main>
+</body>
+</html>
+
