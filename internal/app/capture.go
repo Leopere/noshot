@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -46,6 +47,9 @@ func Capture(ctx context.Context, cfg Config, mode CaptureMode) (string, error) 
 	cmd := exec.CommandContext(ctx, "screencapture", args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		_ = os.Remove(path)
+		if strings.Contains(strings.ToLower(string(output)), "could not create image from display") {
+			return "", fmt.Errorf("macOS denied screen capture; grant Screen Recording permission to NoShot in System Settings")
+		}
 		return "", fmt.Errorf("screencapture failed: %w: %s", err, string(output))
 	}
 
