@@ -4,10 +4,9 @@ package app
 
 /*
 #cgo darwin CFLAGS: -x objective-c -fblocks
-#cgo darwin LDFLAGS: -framework AppKit -framework Foundation -framework UserNotifications
+#cgo darwin LDFLAGS: -framework AppKit -framework Foundation
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
-#import <UserNotifications/UserNotifications.h>
 #import <dispatch/dispatch.h>
 #include <stdlib.h>
 
@@ -19,32 +18,8 @@ static NSString *noshot_string(const char *value) {
 }
 
 static void noshot_notify(const char *title, const char *message) {
-	void (^work)(void) = ^{
-		@autoreleasepool {
-			UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
-			[center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
-			                      completionHandler:^(BOOL granted, NSError * _Nullable error) {
-				if (!granted || error != nil) {
-					return;
-				}
-
-				UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
-				content.title = noshot_string(title);
-				content.body = noshot_string(message);
-
-				NSString *identifier = [[NSUUID UUID] UUIDString];
-				UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:identifier
-				                                                                       content:content
-				                                                                       trigger:nil];
-				[center addNotificationRequest:request withCompletionHandler:nil];
-			}];
-		}
-	};
-
-	if ([NSThread isMainThread]) {
-		work();
-	} else {
-		dispatch_async(dispatch_get_main_queue(), work);
+	@autoreleasepool {
+		NSLog(@"%@: %@", noshot_string(title), noshot_string(message));
 	}
 }
 
