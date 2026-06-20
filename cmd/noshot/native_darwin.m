@@ -2,6 +2,7 @@
 #import <Carbon/Carbon.h>
 
 extern void goHandleHotkey(int id);
+extern void goHandleHotkeyRegistration(int id, int status);
 extern void goHandleMenu(int action);
 
 static NSStatusItem *statusItem;
@@ -53,7 +54,7 @@ static void registerHotKey(UInt32 keyCode, UInt32 identifier) {
 	EventHotKeyID hotKeyID;
 	hotKeyID.signature = 'NSHT';
 	hotKeyID.id = identifier;
-	RegisterEventHotKey(
+	OSStatus status = RegisterEventHotKey(
 		keyCode,
 		cmdKey | shiftKey,
 		hotKeyID,
@@ -61,6 +62,7 @@ static void registerHotKey(UInt32 keyCode, UInt32 identifier) {
 		0,
 		&hotKeyRefs[identifier - 1]
 	);
+	goHandleHotkeyRegistration((int)identifier, (int)status);
 }
 
 static NSMenuItem *menuItem(NSString *title, SEL action, NSString *keyEquivalent) {
