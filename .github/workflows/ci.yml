@@ -7,7 +7,7 @@ on:
 
 jobs:
   verify:
-    runs-on: macos-latest
+    runs-on: [self-hosted, Linux, ARM64, leopere, local]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
