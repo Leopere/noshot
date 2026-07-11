@@ -19,6 +19,9 @@ func TestConfigApplyDefaults(t *testing.T) {
 	if !cfg.CopyImageToClipboard {
 		t.Fatal("CopyImageToClipboard should default to true")
 	}
+	if cfg.RetentionDays != defaultRetentionDays {
+		t.Fatalf("RetentionDays = %d, want %d", cfg.RetentionDays, defaultRetentionDays)
+	}
 	if cfg.CodexCommand != defaultCodexCommand {
 		t.Fatalf("CodexCommand = %q, want %q", cfg.CodexCommand, defaultCodexCommand)
 	}

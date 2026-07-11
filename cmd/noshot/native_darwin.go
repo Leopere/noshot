@@ -11,6 +11,7 @@ import "C"
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Leopere/noshot/internal/app"
 )
@@ -29,9 +30,25 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	reapScreenshots(cfg, time.Now(), "startup")
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for now := range ticker.C {
+			reapScreenshots(cfg, now, "daily")
+		}
+	}()
 	controller = app.NewController(cfg, configPath)
 	app.Notify("NoShot", "Running in the menu bar")
 	C.noshot_run()
+}
+
+func reapScreenshots(cfg app.Config, now time.Time, reason string) {
+	if count, err := app.ReapOldScreenshots(cfg, now); err != nil {
+		app.Logf("%s screenshot cleanup failed: %v", reason, err)
+	} else if count > 0 {
+		app.Logf("reaped %d old screenshots during %s cleanup", count, reason)
+	}
 }
 
 //export goHandleHotkey

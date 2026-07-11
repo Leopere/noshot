@@ -46,6 +46,11 @@ func Capture(ctx context.Context, cfg Config, mode CaptureMode) (string, error) 
 		_ = os.Remove(path)
 		return "", fmt.Errorf("native capture produced an empty file")
 	}
+	if count, err := ReapOldScreenshots(cfg, time.Now()); err != nil {
+		Logf("screenshot cleanup failed: %v", err)
+	} else if count > 0 {
+		Logf("reaped %d old screenshots", count)
+	}
 
 	if cfg.CopyImageToClipboard {
 		if err := CopyImageToClipboard(path); err != nil {

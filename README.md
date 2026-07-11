@@ -13,6 +13,7 @@ a separate project.
 - Screenshots folder: `~/Pictures/Greenshot`
 - Filename template: `greenshot_2006-01-02_15-04-05.png`
 - Clipboard: copy the captured image after saving
+- Retention: automatically remove screenshots older than 60 days
 - Codex integration: uses the installed `codex` CLI and its current local auth
 - Logs: `~/Library/Logs/NoShot/noshot.log`
 
@@ -51,12 +52,17 @@ Example:
   "screenshots_dir": "~/Pictures/Greenshot",
   "filename_template": "greenshot_2006-01-02_15-04-05.png",
   "copy_image_to_clipboard": true,
+  "retention_days": 60,
   "codex_command": "codex",
   "codex_work_dir": ""
 }
 ```
 
-The filename template is a Go time layout.
+The filename template is a Go time layout. Set `retention_days` to `0` to keep
+screenshots indefinitely. Cleanup recognizes NoShot's configured filename
+template and the legacy Greenshot filename format, while leaving unrelated files
+alone. Cleanup runs at launch, after each capture, and once a day while NoShot is
+running.
 
 The menu includes capture and Codex self-tests. Use those first when macOS
 permissions or Codex auth are unclear.

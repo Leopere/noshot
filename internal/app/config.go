@@ -11,6 +11,7 @@ import (
 const (
 	defaultScreenshotsDir = "~/Pictures/Greenshot"
 	defaultFilenameLayout = "greenshot_2006-01-02_15-04-05.png"
+	defaultRetentionDays  = 60
 	defaultCodexCommand   = "codex"
 	defaultCodexWorkDir   = ""
 	applicationSupportDir = "Library/Application Support/NoShot"
@@ -21,6 +22,7 @@ type Config struct {
 	ScreenshotsDir       string `json:"screenshots_dir"`
 	FilenameTemplate     string `json:"filename_template"`
 	CopyImageToClipboard bool   `json:"copy_image_to_clipboard"`
+	RetentionDays        int    `json:"retention_days"`
 	CodexCommand         string `json:"codex_command"`
 	CodexWorkDir         string `json:"codex_work_dir"`
 }
@@ -30,6 +32,7 @@ func DefaultConfig() Config {
 		ScreenshotsDir:       defaultScreenshotsDir,
 		FilenameTemplate:     defaultFilenameLayout,
 		CopyImageToClipboard: true,
+		RetentionDays:        defaultRetentionDays,
 		CodexCommand:         defaultCodexCommand,
 		CodexWorkDir:         defaultCodexWorkDir,
 	}
