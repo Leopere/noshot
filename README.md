@@ -61,8 +61,8 @@ Example:
 The filename template is a Go time layout. Set `retention_days` to `0` to keep
 screenshots indefinitely. Cleanup recognizes NoShot's configured filename
 template and the legacy Greenshot filename format, while leaving unrelated files
-alone. Cleanup runs at launch, after each capture, and once a day while NoShot is
-running.
+alone. Cleanup runs at launch and once a day while NoShot is running, keeping
+directory scans out of the capture path.
 
 The menu includes capture and Codex self-tests. Use those first when macOS
 permissions or Codex auth are unclear.
