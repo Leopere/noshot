@@ -44,7 +44,12 @@ cat > "$CONTENTS/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP_DIR" >/dev/null
+codesign \
+  --force \
+  --deep \
+  --sign - \
+  --requirements '=designated => identifier "com.colinknapp.noshot"' \
+  "$APP_DIR" >/dev/null
 
 (
   cd "$ROOT/dist"
